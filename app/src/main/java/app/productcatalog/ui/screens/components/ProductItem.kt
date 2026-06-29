@@ -73,8 +73,8 @@ fun ProductItem(
                     .clip(RoundedCornerShape(16.dp))
             ) {
                 SubcomposeAsyncImage(
-                    model = product.imagen,
-                    contentDescription = product.nombre,
+                    model = product.image,
+                    contentDescription = product.title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                     loading = {
@@ -114,7 +114,7 @@ fun ProductItem(
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = product.nombre,
+                    text = product.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -145,7 +145,7 @@ fun ProductItem(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = String.format("$%.2f", product.precio),
+                    text = String.format("$%.2f", product.price),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.secondary

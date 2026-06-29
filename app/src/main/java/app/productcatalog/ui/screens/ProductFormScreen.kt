@@ -59,7 +59,7 @@ fun ProductFormScreen(
     var precioStr by remember { mutableStateOf("") }
     var descripcion by remember { mutableStateOf("") }
     var imagenUrl by remember { mutableStateOf("") }
-    var selectedCategoryId by remember { mutableStateOf<Int?>(null) }
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
 
     // Estados de error para validación
     var nombreError by remember { mutableStateOf<String?>(null) }
@@ -72,11 +72,11 @@ fun ProductFormScreen(
         if (isEditMode && productId != null) {
             val product = viewModel.getProductById(productId)
             if (product != null) {
-                nombre = product.nombre
-                precioStr = product.precio.toString()
-                descripcion = product.descripcion
-                imagenUrl = product.imagen
-                selectedCategoryId = product.idCategoria
+                nombre = product.title
+                precioStr = product.price.toString()
+                descripcion = product.description
+                imagenUrl = product.image
+                selectedCategory = product.category
             }
         }
     }
@@ -161,14 +161,13 @@ fun ProductFormScreen(
 
             // Dropdown de Categoría
             var dropdownExpanded by remember { mutableStateOf(false) }
-            val selectedCategoryName = categories.find { it.id == selectedCategoryId }?.nombre ?: ""
 
             ExposedDropdownMenuBox(
                 expanded = dropdownExpanded,
                 onExpandedChange = { dropdownExpanded = it }
             ) {
                 OutlinedTextField(
-                    value = selectedCategoryName,
+                    value = selectedCategory?.replaceFirstChar { it.uppercase() } ?: "",
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Categoría") },
@@ -197,9 +196,9 @@ fun ProductFormScreen(
                     } else {
                         categories.forEach { category ->
                             DropdownMenuItem(
-                                text = { Text(category.nombre) },
+                                text = { Text(category.replaceFirstChar { it.uppercase() }) },
                                 onClick = {
-                                    selectedCategoryId = category.id
+                                    selectedCategory = category
                                     categoriaError = null
                                     dropdownExpanded = false
                                 }
@@ -266,7 +265,7 @@ fun ProductFormScreen(
                         isValid = false
                     }
                     
-                    if (selectedCategoryId == null) {
+                    if (selectedCategory == null) {
                         categoriaError = "Debes seleccionar una categoría"
                         isValid = false
                     }
@@ -276,14 +275,14 @@ fun ProductFormScreen(
                         isValid = false
                     }
 
-                    if (isValid && precio != null && selectedCategoryId != null) {
+                    if (isValid && precio != null && selectedCategory != null) {
                         viewModel.saveProduct(
                             id = productId ?: 0,
-                            nombre = nombre,
-                            precio = precio,
-                            descripcion = descripcion,
-                            imagen = imagenUrl,
-                            idCategoria = selectedCategoryId!!,
+                            title = nombre,
+                            price = precio,
+                            description = descripcion,
+                            image = imagenUrl,
+                            category = selectedCategory!!,
                             onSuccess = onNavigateBack
                         )
                     }

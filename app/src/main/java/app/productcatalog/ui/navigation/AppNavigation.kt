@@ -9,13 +9,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import app.productcatalog.data.repository.CategoryRepositoryImpl
 import app.productcatalog.data.repository.ProductRepositoryImpl
-import app.productcatalog.ui.screens.CategoryScreen
 import app.productcatalog.ui.screens.ProductDetailScreen
 import app.productcatalog.ui.screens.ProductFormScreen
 import app.productcatalog.ui.screens.ProductListScreen
-import app.productcatalog.ui.viewmodel.CategoryViewModel
 import app.productcatalog.ui.viewmodel.ProductViewModel
 import app.productcatalog.ui.viewmodel.ViewModelFactory
 
@@ -25,14 +22,12 @@ fun AppNavigation(modifier: Modifier = Modifier) {
 
     // Inicialización de la capa de datos
     val productRepository = remember { ProductRepositoryImpl() }
-    val categoryRepository = remember { CategoryRepositoryImpl() }
 
     // Fábrica manual para inyección de dependencias
-    val factory = remember { ViewModelFactory(productRepository, categoryRepository) }
+    val factory = remember { ViewModelFactory(productRepository) }
 
-    // Instanciar los ViewModels
+    // Instanciar el ViewModel
     val productViewModel: ProductViewModel = viewModel(factory = factory)
-    val categoryViewModel: CategoryViewModel = viewModel(factory = factory)
 
     NavHost(
         navController = navController,
@@ -51,9 +46,6 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 },
                 onEditProductClick = { productId ->
                     navController.navigate(Screen.ProductForm.createRoute(productId))
-                },
-                onManageCategoriesClick = {
-                    navController.navigate(Screen.CategoryList.route)
                 }
             )
         }
@@ -97,18 +89,6 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 productId = productId,
                 viewModel = productViewModel,
                 onNavigateBack = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        // Gestión de Categorías
-        composable(Screen.CategoryList.route) {
-            CategoryScreen(
-                viewModel = categoryViewModel,
-                onBackClick = {
-                    // Refrescar productos en caso de que se hayan eliminado/modificado categorías
-                    productViewModel.refreshAll()
                     navController.popBackStack()
                 }
             )

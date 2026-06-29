@@ -2,9 +2,7 @@ package app.productcatalog.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.productcatalog.data.model.Category
 import app.productcatalog.data.model.Product
-import app.productcatalog.data.repository.CategoryRepository
 import app.productcatalog.data.repository.ProductRepository
 import app.productcatalog.ui.state.ProductUiState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,12 +10,14 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.IOException
+import java.net.UnknownHostException
 
 class ProductViewModel(
-    private val productRepository: ProductRepository,
-    private val categoryRepository: CategoryRepository
+    private val productRepository: ProductRepository
 ) : ViewModel() {
 
     private val _rawProducts = MutableStateFlow<List<Product>>(emptyList())
@@ -27,28 +27,26 @@ class ProductViewModel(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    private val _selectedCategoryId = MutableStateFlow<Int?>(null)
-    val selectedCategoryId: StateFlow<Int?> = _selectedCategoryId.asStateFlow()
+    private val _selectedCategory = MutableStateFlow<String?>(null)
+    val selectedCategory: StateFlow<String?> = _selectedCategory.asStateFlow()
 
-    private val _categories = MutableStateFlow<List<Category>>(emptyList())
-    val categories: StateFlow<List<Category>> = _categories.asStateFlow()
-
-    // Estado reactivo de la UI combinando la lista de productos, la búsqueda y el filtro por categoría
+    // Estado reactivo de la UI
+    private val _uiState = MutableStateFlow<ProductUiState>(ProductUiState.Loading)
     val uiState: StateFlow<ProductUiState> = combine(
         _rawProducts,
         _searchQuery,
-        _selectedCategoryId,
+        _selectedCategory,
         _isLoading,
         _errorMessage
-    ) { products, query, catId, loading, error ->
+    ) { products, query, category, loading, error ->
         when {
             loading -> ProductUiState.Loading
             error != null -> ProductUiState.Error(error)
             else -> {
                 val filtered = products.filter { product ->
-                    val matchesQuery = product.nombre.contains(query, ignoreCase = true) ||
-                            product.descripcion.contains(query, ignoreCase = true)
-                    val matchesCategory = catId == null || product.idCategoria == catId
+                    val matchesQuery = product.title.contains(query, ignoreCase = true) ||
+                            product.description.contains(query, ignoreCase = true)
+                    val matchesCategory = category == null || product.category == category
                     matchesQuery && matchesCategory
                 }
                 ProductUiState.Success(filtered)
@@ -60,23 +58,32 @@ class ProductViewModel(
         initialValue = ProductUiState.Loading
     )
 
+    // Lista de categorías únicas extraídas de los productos
+    val categories: StateFlow<List<String>> = _rawProducts.map { products ->
+        products.map { it.category }.distinct()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     init {
-        refreshAll()
+        getProducts()
     }
 
-    fun refreshAll() {
+    fun getProductById(id: Int): Product? {
+        return _rawProducts.value.find { it.id == id }
+    }
+
+    fun getProducts() {
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
             try {
-                // Cargar categorías primero para asegurar consistencia
-                val cats = categoryRepository.getCategories()
-                _categories.value = cats
-
-                val prods = productRepository.getProducts()
-                _rawProducts.value = prods
+                val products = productRepository.getProducts()
+                _rawProducts.value = products
+            } catch (e: UnknownHostException) {
+                _errorMessage.value = "Sin conexión a internet. Verifica tu red."
+            } catch (e: IOException) {
+                _errorMessage.value = "Error de red al intentar conectar con el servidor."
             } catch (e: Exception) {
-                _errorMessage.value = "Error al cargar los datos: ${e.localizedMessage ?: "Desconocido"}"
+                _errorMessage.value = "Error inesperado: ${e.localizedMessage}"
             } finally {
                 _isLoading.value = false
             }
@@ -87,57 +94,50 @@ class ProductViewModel(
         _searchQuery.value = query
     }
 
-    fun selectCategory(categoryId: Int?) {
-        _selectedCategoryId.value = categoryId
+    fun selectCategory(category: String?) {
+        _selectedCategory.value = category
     }
 
     fun deleteProduct(id: Int) {
         viewModelScope.launch {
-            _isLoading.value = true
             try {
                 val success = productRepository.deleteProduct(id)
                 if (success) {
-                    // Actualizar el estado local sin necesidad de recargar completamente
                     _rawProducts.value = _rawProducts.value.filter { it.id != id }
-                } else {
-                    _errorMessage.value = "No se pudo eliminar el producto."
                 }
             } catch (e: Exception) {
-                _errorMessage.value = "Error al eliminar: ${e.localizedMessage}"
-            } finally {
-                _isLoading.value = false
+                _errorMessage.value = "No se pudo eliminar el producto."
             }
         }
     }
 
     fun saveProduct(
         id: Int,
-        nombre: String,
-        precio: Double,
-        descripcion: String,
-        imagen: String,
-        idCategoria: Int,
+        title: String,
+        price: Double,
+        description: String,
+        category: String,
+        image: String,
         onSuccess: () -> Unit
     ) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val imageUrl = imagen.ifBlank { "https://images.unsplash.com/photo-1531403009284-440f080d1e12?q=80&w=600&auto=format&fit=crop" }
                 val product = Product(
                     id = id,
-                    nombre = nombre,
-                    precio = precio,
-                    descripcion = descripcion,
-                    imagen = imageUrl,
-                    idCategoria = idCategoria
+                    title = title,
+                    price = price,
+                    description = description,
+                    category = category,
+                    image = image
                 )
 
                 if (id == 0) {
-                    productRepository.insertProduct(product)
+                    productRepository.addProduct(product)
                 } else {
-                    productRepository.updateProduct(product)
+                    productRepository.updateProduct(id, product)
                 }
-                refreshAll()
+                getProducts()
                 onSuccess()
             } catch (e: Exception) {
                 _errorMessage.value = "Error al guardar: ${e.localizedMessage}"
@@ -147,7 +147,7 @@ class ProductViewModel(
         }
     }
 
-    fun getProductById(id: Int): Product? {
-        return _rawProducts.value.find { it.id == id }
+    fun refreshAll() {
+        getProducts()
     }
 }

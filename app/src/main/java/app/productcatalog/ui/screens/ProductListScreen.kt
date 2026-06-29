@@ -20,7 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -39,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -47,8 +47,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import app.productcatalog.data.model.Category
-import app.productcatalog.data.model.Product
 import app.productcatalog.ui.state.ProductUiState
 import app.productcatalog.ui.screens.components.ProductItem
 import app.productcatalog.ui.viewmodel.ProductViewModel
@@ -60,15 +58,17 @@ fun ProductListScreen(
     onProductClick: (Int) -> Unit,
     onAddProductClick: () -> Unit,
     onEditProductClick: (Int) -> Unit,
-    onManageCategoriesClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-    val selectedCategoryId by viewModel.selectedCategoryId.collectAsState()
+    val selectedCategory by viewModel.selectedCategory.collectAsState()
     val categories by viewModel.categories.collectAsState()
 
-    val categoriesMap = categories.associateBy { it.id }
+    // GATILLO INICIAL: Cargar datos al entrar a la pantalla
+    LaunchedEffect(Unit) {
+        viewModel.getProducts()
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -81,20 +81,6 @@ fun ProductListScreen(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
                     )
-                },
-                actions = {
-                    IconButton(
-                        onClick = onManageCategoriesClick,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.List,
-                            contentDescription = "Gestionar Categorías",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
@@ -159,7 +145,7 @@ fun ProductListScreen(
             // Selector Horizontal de Categorías (Filtro)
             CategoryFilterBar(
                 categories = categories,
-                selectedCategoryId = selectedCategoryId,
+                selectedCategory = selectedCategory,
                 onCategorySelect = { viewModel.selectCategory(it) }
             )
 
@@ -249,12 +235,11 @@ fun ProductListScreen(
                             ) {
                                 items(
                                     items = products,
-                                    key = { it.id } // Key única para evitar recomposiciones innecesarias
+                                    key = { it.id }
                                 ) { product ->
-                                    val catName = categoriesMap[product.idCategoria]?.nombre ?: "Sin Categoría"
                                     ProductItem(
                                         product = product,
-                                        categoryName = catName,
+                                        categoryName = product.category,
                                         onProductClick = onProductClick,
                                         onEditClick = onEditProductClick,
                                         onDeleteClick = { viewModel.deleteProduct(it) }
@@ -272,9 +257,9 @@ fun ProductListScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoryFilterBar(
-    categories: List<Category>,
-    selectedCategoryId: Int?,
-    onCategorySelect: (Int?) -> Unit,
+    categories: List<String>,
+    selectedCategory: String?,
+    onCategorySelect: (String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyRow(
@@ -287,7 +272,7 @@ fun CategoryFilterBar(
         // Opción de "Todos"
         item {
             FilterChip(
-                selected = selectedCategoryId == null,
+                selected = selectedCategory == null,
                 onClick = { onCategorySelect(null) },
                 label = { Text("Todos") },
                 colors = FilterChipDefaults.filterChipColors(
@@ -299,11 +284,11 @@ fun CategoryFilterBar(
             )
         }
 
-        items(categories, key = { it.id }) { category ->
+        items(categories, key = { it }) { category ->
             FilterChip(
-                selected = selectedCategoryId == category.id,
-                onClick = { onCategorySelect(category.id) },
-                label = { Text(category.nombre) },
+                selected = selectedCategory == category,
+                onClick = { onCategorySelect(category) },
+                label = { Text(category.replaceFirstChar { it.uppercase() }) },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = MaterialTheme.colorScheme.primary,
                     selectedLabelColor = MaterialTheme.colorScheme.onPrimary

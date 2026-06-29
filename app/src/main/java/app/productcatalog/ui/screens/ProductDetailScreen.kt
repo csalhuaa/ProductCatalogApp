@@ -52,8 +52,7 @@ fun ProductDetailScreen(
     modifier: Modifier = Modifier
 ) {
     val product = viewModel.getProductById(productId)
-    val categories by viewModel.categories.collectAsState()
-    val categoryName = categories.find { it.id == product?.idCategoria }?.nombre ?: "Sin Categoría"
+    val categoryName = product?.category?.replaceFirstChar { it.uppercase() } ?: "Sin Categoría"
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -122,8 +121,8 @@ fun ProductDetailScreen(
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     SubcomposeAsyncImage(
-                        model = product.imagen,
-                        contentDescription = product.nombre,
+                        model = product.image,
+                        contentDescription = product.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                         loading = {
@@ -176,7 +175,7 @@ fun ProductDetailScreen(
 
                     // Nombre del Producto
                     Text(
-                        text = product.nombre,
+                        text = product.title,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
@@ -200,7 +199,7 @@ fun ProductDetailScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = String.format("$%.2f", product.precio),
+                                text = String.format("$%.2f", product.price),
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.secondary
@@ -221,7 +220,7 @@ fun ProductDetailScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = product.descripcion,
+                        text = product.description,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 26.sp
