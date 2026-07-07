@@ -3,12 +3,14 @@ package app.productcatalog.ui.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import app.productcatalog.data.local.AppDatabase
 import app.productcatalog.data.repository.ProductRepositoryImpl
 import app.productcatalog.ui.screens.ProductDetailScreen
 import app.productcatalog.ui.screens.ProductFormScreen
@@ -19,9 +21,11 @@ import app.productcatalog.ui.viewmodel.ViewModelFactory
 @Composable
 fun AppNavigation(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
+    val context = LocalContext.current
 
-    // Inicialización de la capa de datos
-    val productRepository = remember { ProductRepositoryImpl() }
+    // Inicialización de la capa de datos local
+    val database = remember { AppDatabase.getDatabase(context) }
+    val productRepository = remember { ProductRepositoryImpl(database.productDao()) }
 
     // Fábrica manual para inyección de dependencias
     val factory = remember { ViewModelFactory(productRepository) }
