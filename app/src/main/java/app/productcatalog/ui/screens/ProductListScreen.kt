@@ -64,10 +64,11 @@ fun ProductListScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val categories by viewModel.categories.collectAsState()
+    val isOffline by viewModel.isOffline.collectAsState()
 
     // GATILLO INICIAL: Cargar datos al entrar a la pantalla
     LaunchedEffect(Unit) {
-        viewModel.getProducts()
+        viewModel.refreshAll()
     }
 
     Scaffold(
@@ -108,6 +109,32 @@ fun ProductListScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            // Indicador de modo Offline
+            if (isOffline) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.errorContainer)
+                        .padding(8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = "Sin conexión",
+                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Sin conexión - Mostrando datos locales",
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
             // Barra de Búsqueda
             OutlinedTextField(
                 value = searchQuery,

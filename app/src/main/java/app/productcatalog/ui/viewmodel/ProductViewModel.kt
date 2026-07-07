@@ -20,9 +20,12 @@ class ProductViewModel(
     private val productRepository: ProductRepository
 ) : ViewModel() {
 
-    private val _rawProducts = MutableStateFlow<List<Product>>(emptyList())
     private val _isLoading = MutableStateFlow(true)
     private val _errorMessage = MutableStateFlow<String?>(null)
+    
+    // Estado para indicar si estamos offline
+    private val _isOffline = MutableStateFlow(false)
+    val isOffline: StateFlow<Boolean> = _isOffline.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -30,18 +33,27 @@ class ProductViewModel(
     private val _selectedCategory = MutableStateFlow<String?>(null)
     val selectedCategory: StateFlow<String?> = _selectedCategory.asStateFlow()
 
-    // Estado reactivo de la UI
-    private val _uiState = MutableStateFlow<ProductUiState>(ProductUiState.Loading)
+    // Mantener la lista actual de productos para el acceso síncrono
+    private val _currentProducts = productRepository.products.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = emptyList()
+    )
+
+    // Estado reactivo de la UI combinando el Flow del repositorio y los estados locales
     val uiState: StateFlow<ProductUiState> = combine(
-        _rawProducts,
+        productRepository.products,
         _searchQuery,
         _selectedCategory,
         _isLoading,
         _errorMessage
     ) { products, query, category, loading, error ->
         when {
-            loading -> ProductUiState.Loading
-            error != null -> ProductUiState.Error(error)
+            // Si está cargando y no hay datos, muestra Loading
+            loading && products.isEmpty() -> ProductUiState.Loading
+            // Si hay error y no hay datos, muestra Error
+            error != null && products.isEmpty() && !_isOffline.value -> ProductUiState.Error(error)
+            // Si hay datos, los mostramos independientemente del estado de carga/error (Offline-First)
             else -> {
                 val filtered = products.filter { product ->
                     val matchesQuery = product.title.contains(query, ignoreCase = true) ||
@@ -58,30 +70,32 @@ class ProductViewModel(
         initialValue = ProductUiState.Loading
     )
 
-    // Lista de categorías únicas extraídas de los productos
-    val categories: StateFlow<List<String>> = _rawProducts.map { products ->
+    // Lista de categorías únicas extraídas dinámicamente de Room
+    val categories: StateFlow<List<String>> = productRepository.products.map { products ->
         products.map { it.category }.distinct()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
-        getProducts()
+        refreshProducts()
     }
 
     fun getProductById(id: Int): Product? {
-        return _rawProducts.value.find { it.id == id }
+        return _currentProducts.value.find { it.id == id }
     }
 
-    fun getProducts() {
+    private fun refreshProducts() {
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
+            _isOffline.value = false
             try {
-                val products = productRepository.getProducts()
-                _rawProducts.value = products
+                productRepository.refreshProducts()
             } catch (e: UnknownHostException) {
-                _errorMessage.value = "Sin conexión a internet. Verifica tu red."
+                _isOffline.value = true
+                _errorMessage.value = "Sin conexión a internet. Mostrando datos locales."
             } catch (e: IOException) {
-                _errorMessage.value = "Error de red al intentar conectar con el servidor."
+                _isOffline.value = true
+                _errorMessage.value = "Error de red al intentar sincronizar. Mostrando datos locales."
             } catch (e: Exception) {
                 _errorMessage.value = "Error inesperado: ${e.localizedMessage}"
             } finally {
@@ -102,11 +116,11 @@ class ProductViewModel(
         viewModelScope.launch {
             try {
                 val success = productRepository.deleteProduct(id)
-                if (success) {
-                    _rawProducts.value = _rawProducts.value.filter { it.id != id }
+                if (!success) {
+                    _errorMessage.value = "No se pudo eliminar el producto remotamente."
                 }
             } catch (e: Exception) {
-                _errorMessage.value = "No se pudo eliminar el producto."
+                _errorMessage.value = "Error al eliminar el producto: ${e.localizedMessage}"
             }
         }
     }
@@ -137,7 +151,7 @@ class ProductViewModel(
                 } else {
                     productRepository.updateProduct(id, product)
                 }
-                getProducts()
+                // No es necesario llamar a refreshProducts(), Room emitirá los cambios automáticamente
                 onSuccess()
             } catch (e: Exception) {
                 _errorMessage.value = "Error al guardar: ${e.localizedMessage}"
@@ -147,7 +161,8 @@ class ProductViewModel(
         }
     }
 
+    // Mantenemos el método para recargar manualmente desde la UI
     fun refreshAll() {
-        getProducts()
+        refreshProducts()
     }
 }
