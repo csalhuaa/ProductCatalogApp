@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "698934396200",
+    "project_id": "catalog-pro-app-26",
+    "storage_bucket": "catalog-pro-app-26.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:698934396200:android:f7487e2e9718840f427c1d",
+        "android_client_info": {
+          "package_name": "app.productcatalog"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDZ8nfKlzqscjlT1NFdThOIg5hUlZPF15A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

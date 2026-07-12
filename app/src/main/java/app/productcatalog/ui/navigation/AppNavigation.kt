@@ -61,6 +61,11 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 navArgument("productId") {
                     type = NavType.IntType
                 }
+            ),
+            deepLinks = listOf(
+                androidx.navigation.navDeepLink {
+                    uriPattern = "catalogopro://app/producto/{productId}"
+                }
             )
         ) { backStackEntry ->
             val productId = backStackEntry.arguments?.getInt("productId") ?: 0
